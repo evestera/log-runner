@@ -1,0 +1,38 @@
+.DS_Store
+node_modules
+/build
+/coverage
+/local
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+/static/fonts/
+/storybook-static/
+/.github/
+/.storybook/
+/playwright-report
+/test-results
+
+report.html
+report.json
+
+# Ignore files for PNPM, NPM and YARN
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Ignore all vscode configurations
+.vscode
+
+# Ignore vite config
+vite.config.js
+
+# Ignore db folder
+/db
+
+#Ignore readme
+README.md
+
+/src-tauri/
