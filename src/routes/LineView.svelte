@@ -1,6 +1,16 @@
 <script lang="ts">
   import type { Line } from "./types";
   import LinkifiedText from "./LinkifiedText.svelte";
+  import {
+    addListener,
+    removeListener,
+    expandCollapse,
+  } from "./expandCollapse.svelte";
+  import MicroIconButton from "./MicroIconButton.svelte";
+  import FunnelMicroIcon from "../icons/FunnelMicroIcon.svelte";
+  import SquareTwoStackMicroIcon from "../icons/SquareTwoStackMicroIcon.svelte";
+  import { filter } from "./filter.svelte";
+  import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
   type Props = {
     line: Line;
@@ -8,25 +18,62 @@
 
   let { line }: Props = $props();
   let expandable = $derived(!!line.record);
-  let expanded = $state(false);
+  // svelte-ignore state_referenced_locally
+  let expanded = $state(expandable && expandCollapse.startAsExpanded);
 
   function expand() {
     if (!expandable) return;
     expanded = !expanded;
   }
+
+  $effect(() => {
+    const onExpand = () => {
+      if (!expandable) return;
+      expanded = true;
+    };
+    const onCollapse = () => {
+      expanded = false;
+    };
+    addListener(onExpand, onCollapse);
+    return () => {
+      removeListener(onExpand, onCollapse);
+    };
+  });
 </script>
 
-{#snippet objectEntries(object)}
+{#snippet fieldButtons(key, value)}
+  <div class="field-buttons">
+    <MicroIconButton
+      onclick={() => {
+        filter.enabled = true;
+        filter.value += ` ${key}:${value}`;
+      }}
+    >
+      <FunnelMicroIcon />
+    </MicroIconButton>
+    <MicroIconButton
+      onclick={() => {
+        writeText(value);
+      }}
+    >
+      <SquareTwoStackMicroIcon />
+    </MicroIconButton>
+  </div>
+{/snippet}
+
+{#snippet objectEntries(keyPrefix, object)}
   <ul>
     {#each Object.entries(object ?? {}) as [key, value]}
       <li>
         <span class="object-key">{key}:</span>
         {#if typeof value === "string"}
           <span class="pre-wrap"><LinkifiedText text={value} /></span>
+          {@render fieldButtons(keyPrefix + key, value)}
         {:else if typeof value === "number"}
           {value}
+          {@render fieldButtons(keyPrefix + key, value.toString())}
         {:else if typeof value === "object"}
-          {@render objectEntries(value)}
+          {@render objectEntries(key + ".", value)}
         {/if}
       </li>
     {/each}
@@ -34,13 +81,19 @@
 {/snippet}
 
 <div class="line-container {line.level} {line.type}">
-  <div class="line" onclick={expand}>
+  <div
+    class="line"
+    onclick={expand}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => e.key === "Enter" && expand()}
+  >
     <span class="timestamp">{line.timestamp.toISOString().slice(11, 23)}</span>
     <span class="message"><LinkifiedText text={line.message} /></span>
   </div>
   {#if expanded}
     <div class="expanded">
-      {@render objectEntries(line.record)}
+      {@render objectEntries("", line.record)}
     </div>
   {/if}
 </div>
@@ -96,5 +149,10 @@
 
   .object-key {
     color: #888;
+  }
+
+  .field-buttons {
+    display: inline-block;
+    height: 5px;
   }
 </style>

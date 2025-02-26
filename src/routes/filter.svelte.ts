@@ -1,5 +1,10 @@
 import type { Line } from "./types";
 
+export let filter = $state({
+  value: "",
+  enabled: false,
+});
+
 export function lineMatches(line: Line, filter: string): boolean {
   const terms = filter.split(" ");
   return terms.every((rawTerm) => {

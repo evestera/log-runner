@@ -11,6 +11,7 @@
     "opener:allow-default-urls",
     "shell:default",
     "shell:allow-kill",
+    "clipboard-manager:allow-write-text",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

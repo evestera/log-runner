@@ -11,17 +11,24 @@
   import TextInput from "./TextInput.svelte";
   import CheckboxButton from "./CheckboxButton.svelte";
   import FunnelIcon from "../icons/FunnelIcon.svelte";
-  import { lineMatches } from "./filter";
+  import { filter, lineMatches } from "./filter.svelte";
+  import {
+    collapseAll,
+    expandAll,
+    expandCollapse,
+  } from "./expandCollapse.svelte";
+  import ChevronUpDownIcon from "../icons/ChevronUpDownIcon.svelte";
+  import ChevronDownUpIcon from "../icons/ChevronDownUpIcon.svelte";
 
   let workingDirectory = $state("");
   let task = $state(`npm run dev`);
   let followOutput = $state(true);
-  let useFilter = $state(false);
-  let filter = $state("");
 
   let lines: Line[] = $state([]);
   let filteredLines = $derived.by(() =>
-    useFilter ? lines.filter((line) => lineMatches(line, filter)) : lines,
+    filter.enabled
+      ? lines.filter((line) => lineMatches(line, filter.value))
+      : lines,
   );
 
   let child: Child | null = $state(null);
@@ -156,14 +163,26 @@
     >
     <CheckboxButton bind:checked={followOutput} label="Follow output" />
     <span style="float: right">
-      <IconButton onclick={() => (useFilter = !useFilter)} inverted={useFilter}>
+      {#if expandCollapse.startAsExpanded}
+        <IconButton onclick={collapseAll}>
+          <ChevronDownUpIcon />
+        </IconButton>
+      {:else}
+        <IconButton onclick={expandAll}>
+          <ChevronUpDownIcon />
+        </IconButton>
+      {/if}
+      <IconButton
+        onclick={() => (filter.enabled = !filter.enabled)}
+        inverted={filter.enabled}
+      >
         <FunnelIcon />
       </IconButton>
     </span>
   </div>
-  {#if useFilter}
+  {#if filter.enabled}
     <div>
-      <TextInput bind:value={filter} fullwidth />
+      <TextInput bind:value={filter.value} fullwidth />
     </div>
   {/if}
 </div>
