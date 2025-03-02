@@ -44,16 +44,20 @@
 {#snippet fieldButtons(key, value)}
   <div class="field-buttons">
     <MicroIconButton
+      label="Add to filter"
       onclick={() => {
         filter.enabled = true;
         filter.value += ` ${key}:${value}`;
+        return "Added to filter!";
       }}
     >
       <FunnelMicroIcon />
     </MicroIconButton>
     <MicroIconButton
+      label="Copy"
       onclick={() => {
         writeText(value);
+        return "Copied!";
       }}
     >
       <SquareTwoStackMicroIcon />
@@ -110,6 +114,11 @@
     border-bottom: 1px solid #282828;
   }
 
+  .message {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
   .error .message {
     color: #cc2222;
   }
@@ -134,6 +143,7 @@
 
   .pre-wrap {
     white-space: pre-wrap;
+    overflow-wrap: break-word;
   }
 
   ul {

@@ -38,6 +38,10 @@
     background-color: #444444;
   }
 
+  label:active {
+    background-color: #525252;
+  }
+
   input {
     float: left;
     appearance: none;

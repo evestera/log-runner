@@ -44,6 +44,9 @@
   button:hover {
     background-color: #444444;
   }
+  button:active {
+    background-color: #525252;
+  }
 
   .inverted {
     background-color: #aaaaaa;

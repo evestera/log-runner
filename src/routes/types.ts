@@ -1,4 +1,5 @@
 export type Line = {
+  id: number;
   type: "stdout" | "stderr" | "meta";
   level: "info" | "warn" | "error";
   message: string;

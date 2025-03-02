@@ -24,6 +24,7 @@
   let task = $state(`npm run dev`);
   let followOutput = $state(true);
 
+  let nextLineId = $state(0);
   let lines: Line[] = $state([]);
   let filteredLines = $derived.by(() =>
     filter.enabled
@@ -33,9 +34,10 @@
 
   let child: Child | null = $state(null);
 
-  function pushLine(line: PartialBy<Line, "timestamp">) {
+  function pushLine(line: PartialBy<Line, "timestamp" | "id">) {
     const processedLine = {
       ...line,
+      id: nextLineId++,
       timestamp: line.timestamp ?? new Date(),
     };
     lines.push(processedLine);
@@ -173,7 +175,10 @@
         </IconButton>
       {/if}
       <IconButton
-        onclick={() => (filter.enabled = !filter.enabled)}
+        onclick={() => {
+          filter.value = "";
+          filter.enabled = !filter.enabled;
+        }}
         inverted={filter.enabled}
       >
         <FunnelIcon />
@@ -188,7 +193,7 @@
 </div>
 
 <div class="output">
-  {#each filteredLines as line}
+  {#each filteredLines as line (line.id)}
     <LineView {line} />
   {/each}
 </div>
@@ -207,7 +212,6 @@
     position: sticky;
     top: 0;
     background-color: #333333;
-    /*height: 70px;*/
     line-height: 35px;
     vertical-align: top;
     padding: 5px;
