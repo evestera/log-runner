@@ -19,9 +19,37 @@
   } from "./expandCollapse.svelte";
   import ChevronUpDownIcon from "../icons/ChevronUpDownIcon.svelte";
   import ChevronDownUpIcon from "../icons/ChevronDownUpIcon.svelte";
+  import { load, type Store } from "@tauri-apps/plugin-store";
 
-  let workingDirectory = $state("");
-  let task = $state(`npm run dev`);
+  let config = $state({
+    workingDirectory: "",
+    task: "",
+  });
+
+  let configStore: Store | null = null;
+
+  $effect(() => {
+    load("config.json").then((store) => {
+      configStore = store;
+      store.get("workingDirectory").then((value) => {
+        if (value && typeof value === "string") {
+          config.workingDirectory = value;
+        }
+      });
+      store.get("task").then((value) => {
+        if (value && typeof value === "string") {
+          config.task = value;
+        }
+      });
+    });
+  });
+  $effect(() => {
+    configStore?.set("workingDirectory", config.workingDirectory);
+  });
+  $effect(() => {
+    configStore?.set("task", config.task);
+  });
+
   let followOutput = $state(true);
 
   let nextLineId = $state(0);
@@ -54,7 +82,9 @@
     lines = [];
     let command = Command.create(executable, [
       "-c",
-      !!workingDirectory ? `cd ${workingDirectory} && ${task}` : task,
+      !!config.workingDirectory
+        ? `cd ${config.workingDirectory} && ${config.task}`
+        : config.task,
     ]);
 
     command.on("close", (data) => {
@@ -151,8 +181,8 @@
 
 <div class="toolbar">
   <div>
-    <TextInput bind:value={workingDirectory} />
-    <TextInput bind:value={task} />
+    <TextInput bind:value={config.workingDirectory} />
+    <TextInput bind:value={config.task} />
 
     <IconButton onclick={startZsh} color="green">
       <PlayIcon />

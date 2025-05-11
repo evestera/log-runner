@@ -12,7 +12,6 @@ Usually for locally running applications that would e.g. log to a log aggregatio
   A workaround for this is to start it from the terminal. See below for install options.
 - If the command you run does not get shut down by SIGKILL, clicking the STOP button will not actually kill the process.
   A workaround you can use is to relaunch the app using the relaunch button.
-- Configuration is not saved between sessions. (Plan to fix this soon though.)
 - If there's messages with both ANSI escapes and URLs, rendering might mess up a bit.
 - Filters do not work with subfields (e.g. "http.method=GET" will not work).
 

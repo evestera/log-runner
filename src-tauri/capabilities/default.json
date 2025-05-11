@@ -12,6 +12,7 @@
     "shell:default",
     "shell:allow-kill",
     "clipboard-manager:allow-write-text",
+    "store:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [
