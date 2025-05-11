@@ -16,7 +16,10 @@ export function lineMatches(line: Line, filter: string): boolean {
     }
     if (term.includes(":")) {
       const [key, value] = term.split(":");
-      const matches = line.record && line.record[key] === value;
+      let matches = line.record && line.record[key] === value;
+      if (key === "task") {
+        matches = line.task === Number(value);
+      }
       return negated ? !matches : matches;
     }
     const matches = line.message.includes(term);

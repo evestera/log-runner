@@ -94,6 +94,10 @@
   >
     <span class="timestamp">{line.timestamp.toISOString().slice(11, 23)}</span>
     <span class="message"><LinkifiedText text={line.message} /></span>
+    <span class="right-meta">
+      {line.record ? "{}" : ""}
+      {line.task}
+    </span>
   </div>
   {#if expanded}
     <div class="expanded">
@@ -112,6 +116,7 @@
     line-height: 21px;
     padding-left: 2px;
     border-bottom: 1px solid #282828;
+    position: relative;
   }
 
   .message {
@@ -129,6 +134,14 @@
 
   .meta {
     opacity: 0.5;
+  }
+
+  .right-meta {
+    position: absolute;
+    opacity: 0.5;
+    right: 5px;
+    top: 0;
+    font-size: 11px;
   }
 
   .timestamp {

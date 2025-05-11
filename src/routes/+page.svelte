@@ -21,9 +21,22 @@
   import ChevronDownUpIcon from "../icons/ChevronDownUpIcon.svelte";
   import { load, type Store } from "@tauri-apps/plugin-store";
 
-  let config = $state({
-    workingDirectory: "",
-    task: "",
+  function track(val: unknown) {
+    // no-op
+  }
+
+  type Task = {
+    id: number;
+    task: string;
+    workingDirectory: string;
+    showOutput: boolean;
+  };
+
+  let nextTaskId = 1;
+  let config = $state<{
+    tasks: Task[];
+  }>({
+    tasks: [],
   });
 
   let configStore: Store | null = null;
@@ -31,23 +44,33 @@
   $effect(() => {
     load("config.json").then((store) => {
       configStore = store;
-      store.get("workingDirectory").then((value) => {
-        if (value && typeof value === "string") {
-          config.workingDirectory = value;
-        }
-      });
-      store.get("task").then((value) => {
-        if (value && typeof value === "string") {
-          config.task = value;
+      store.get("tasks").then((value) => {
+        if (value && Array.isArray(value)) {
+          value.forEach((task) => {
+            task.id = nextTaskId++;
+            task.showOutput = task.showOutput ?? true;
+          });
+          config.tasks = value;
+        } else {
+          config.tasks = [
+            {
+              id: nextTaskId++,
+              task: "",
+              workingDirectory: "",
+              showOutput: true,
+            },
+          ];
         }
       });
     });
   });
   $effect(() => {
-    configStore?.set("workingDirectory", config.workingDirectory);
-  });
-  $effect(() => {
-    configStore?.set("task", config.task);
+    // Make svelte re-run this effect when any part of config.tasks changes
+    for (const task of config.tasks) {
+      track(task.task);
+      track(task.workingDirectory);
+    }
+    configStore?.set("tasks", config.tasks);
   });
 
   let followOutput = $state(true);
@@ -56,11 +79,18 @@
   let lines: Line[] = $state([]);
   let filteredLines = $derived.by(() =>
     filter.enabled
-      ? lines.filter((line) => lineMatches(line, filter.value))
-      : lines,
+      ? lines.filter(
+          (line) =>
+            config.tasks.find((task) => task.id === line.task)!.showOutput &&
+            lineMatches(line, filter.value),
+        )
+      : lines.filter(
+          (line) =>
+            config.tasks.find((task) => task.id === line.task)!.showOutput,
+        ),
   );
 
-  let child: Child | null = $state(null);
+  let children: Partial<Record<number, Child>> = $state({});
 
   function pushLine(line: PartialBy<Line, "timestamp" | "id">) {
     const processedLine = {
@@ -80,75 +110,95 @@
 
   async function runCommand(executable: string) {
     lines = [];
-    let command = Command.create(executable, [
-      "-c",
-      !!config.workingDirectory
-        ? `cd ${config.workingDirectory} && ${config.task}`
-        : config.task,
-    ]);
+    for (const task of config.tasks) {
+      if (children[task.id]) {
+        pushLine({
+          task: task.id,
+          type: "meta",
+          level: "info",
+          message: `command already running`,
+        });
+        continue;
+      }
 
-    command.on("close", (data) => {
+      let command = Command.create(executable, [
+        "-c",
+        !!task.workingDirectory
+          ? `cd ${task.workingDirectory} && ${task.task}`
+          : task.task,
+      ]);
+
+      command.on("close", (data) => {
+        pushLine({
+          task: task.id,
+          type: "meta",
+          level: "info",
+          message: `command finished with code ${data.code} and signal ${data.signal}`,
+        });
+        children[task.id] = undefined;
+      });
+      command.on("error", (error) =>
+        pushLine({
+          task: task.id,
+          type: "meta",
+          level: "error",
+          message: `command error: "${error}"`,
+        }),
+      );
+      command.stdout.on("data", (line) => {
+        let lineStored = false;
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.message) {
+            pushLine({
+              task: task.id,
+              type: "stdout",
+              level: parsed.level || "info",
+              message: parsed.message,
+              timestamp: parsed.timestamp
+                ? new Date(parsed.timestamp)
+                : undefined,
+              record: parsed,
+            });
+            lineStored = true;
+          }
+        } catch (error) {
+          // not a JSON line
+        }
+        if (!lineStored) {
+          pushLine({
+            task: task.id,
+            type: "stdout",
+            level: "info",
+            message: line,
+          });
+        }
+      });
+      command.stderr.on("data", (line) =>
+        pushLine({
+          task: task.id,
+          type: "stderr",
+          level: "error",
+          message: line,
+        }),
+      );
+
       pushLine({
+        task: task.id,
         type: "meta",
         level: "info",
-        message: `command finished with code ${data.code} and signal ${data.signal}`,
+        message: "starting command",
       });
-      child = null;
-    });
-    command.on("error", (error) =>
+
+      const child = await command.spawn();
+      children[task.id] = child;
       pushLine({
+        task: task.id,
         type: "meta",
-        level: "error",
-        message: `command error: "${error}"`,
-      }),
-    );
-    command.stdout.on("data", (line) => {
-      let lineStored = false;
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed.message) {
-          pushLine({
-            type: "stdout",
-            level: parsed.level || "info",
-            message: parsed.message,
-            timestamp: parsed.timestamp
-              ? new Date(parsed.timestamp)
-              : undefined,
-            record: parsed,
-          });
-          lineStored = true;
-        }
-      } catch (error) {
-        // not a JSON line
-      }
-      if (!lineStored) {
-        pushLine({
-          type: "stdout",
-          level: "info",
-          message: line,
-        });
-      }
-    });
-    command.stderr.on("data", (line) =>
-      pushLine({
-        type: "stderr",
-        level: "error",
-        message: line,
-      }),
-    );
-
-    pushLine({
-      type: "meta",
-      level: "info",
-      message: "starting command",
-    });
-
-    child = await command.spawn();
-    pushLine({
-      type: "meta",
-      level: "info",
-      message: `command spawned with pid ${child.pid}`,
-    });
+        level: "info",
+        message: `command ${task.id} spawned with pid ${child.pid}`,
+      });
+    }
   }
 
   async function startSh() {
@@ -160,20 +210,24 @@
   }
 
   async function stop() {
-    if (child) {
-      try {
-        await child.kill();
-        pushLine({
-          type: "meta",
-          level: "info",
-          message: `killed command with pid ${child.pid}`,
-        });
-      } catch (error) {
-        pushLine({
-          type: "meta",
-          level: "error",
-          message: `error killing command: "${error}"`,
-        });
+    for (const [taskId, child] of Object.entries(children)) {
+      if (child) {
+        try {
+          await child.kill();
+          pushLine({
+            task: +taskId,
+            type: "meta",
+            level: "info",
+            message: `killed command with pid ${child.pid}`,
+          });
+        } catch (error) {
+          pushLine({
+            task: +taskId,
+            type: "meta",
+            level: "error",
+            message: `error killing command: "${error}"`,
+          });
+        }
       }
     }
   }
@@ -181,13 +235,41 @@
 
 <div class="toolbar">
   <div>
-    <TextInput bind:value={config.workingDirectory} />
-    <TextInput bind:value={config.task} />
+    {#each config.tasks as task (task.id)}
+      <div>
+        {task.id}:
+        <TextInput bind:value={task.workingDirectory} />
+        <TextInput bind:value={task.task} />
+        <CheckboxButton label="Show output" bind:checked={task.showOutput} />
+        <button
+          onclick={() => {
+            config.tasks = config.tasks.filter((t) => t.id !== task.id);
+          }}
+        >
+          Remove task
+        </button>
+      </div>
+    {/each}
+
+    <button
+      onclick={() => {
+        config.tasks.push({
+          id: nextTaskId++,
+          task: "",
+          workingDirectory: "",
+          showOutput: true,
+        });
+      }}>Add task</button
+    >
 
     <IconButton onclick={startZsh} color="green">
       <PlayIcon />
     </IconButton>
-    <IconButton onclick={stop} disabled={!child} color="red">
+    <IconButton
+      onclick={stop}
+      disabled={Object.entries(children).length === 0}
+      color="red"
+    >
       <StopIcon />
     </IconButton>
     <IconButton onclick={relaunch}>

@@ -1,5 +1,6 @@
 export type Line = {
   id: number;
+  task: number;
   type: "stdout" | "stderr" | "meta";
   level: "info" | "warn" | "error";
   message: string;
